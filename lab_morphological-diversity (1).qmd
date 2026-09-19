@@ -1,0 +1,103 @@
+---
+title: "Genome-wide analysis of genetic diversity in a germplasm collection including wild relatives and interspecific clones of garden asparagus"
+author: "Flavio Lozano-Isla"
+format:
+  html:
+    toc: true
+    toc-location: left
+    toc-expand: 4
+    number-sections: true
+    self-contained: true
+    output-file: "index"
+editor_options: 
+  chunk_output_type: console
+execute: 
+  warning: false
+  echo: false
+---
+
+# Referencias
+
+- https://doi.org/10.3389/fpls.2023.1187663
+
+# Librerias y configuración
+
+```{r}
+#| label: setup
+
+source('https://inkaverse.com/setup.r')
+```
+
+# Importación de datos
+
+> url: https://docs.google.com/spreadsheets/d/1vndj_EaHTAxHs2FQjs7PXQTNC65igP1m6thQMp11-3c/edit?gid=0#gid=0
+
+```{r}
+url <- "https://docs.google.com/spreadsheets/d/1vndj_EaHTAxHs2FQjs7PXQTNC65igP1m6thQMp11-3c/edit?gid=0#gid=0"
+
+gs <- as_sheets_id(url)
+
+ploi <- range_read(ss = gs, sheet = "STable1")
+
+feno <- range_read(ss = gs, sheet = "STable2") %>% # ctrl + shit + m
+  rename_all(~ str_replace_all(., " ", "_")) %>% 
+  mutate(across(2:ncol(.), ~gsub("-", NA, .)))  
+
+str(feno)
+str(ploi)
+```
+
+# Unir base de datos
+
+```{r}
+fb <- merge(feno, ploi) %>% 
+  dplyr::select(Genotype, Type, Ploidy, Sex, Species, everything()) %>% 
+  mutate(across(Plant_number:ncol(.), ~ as.numeric(.)))
+
+str(fb)
+
+fb %>% kable()
+```
+
+# Análisis de componentes principales - PCA
+
+```{r}
+mv <- PCA(X = fb, scale.unit = T, quali.sup = 1:5, graph = F)
+
+var <- plot.PCA(mv, choix = c("var"), cex=0.7)
+
+ind <- plot.PCA(mv, choix = c("ind"), cex=0.7
+                , label = "ind"
+                , invisible = "quali"
+                , habillage = 3
+                )
+
+list(var, ind) %>% 
+  plot_grid(plotlist = ., ncol = 2, labels = "auto")
+
+
+summary(mv, nbelements = Inf, nb.dec = 2)
+pcainfo <- factoextra::get_pca_var(mv)
+pcainfo$cor
+pcainfo$contrib
+```
+
+# Analisis de Cluster
+
+```{r}
+cls <- HCPC(mv, graph = F)
+
+plot.HCPC(cls, choice = "map", nb.clust=-1, draw.tree = F)
+plot.HCPC(cls, choice = "tree", nb.clust=-1, draw.tree = F)
+
+
+map <- \(){
+  plot.HCPC(cls, choice = "map", nb.clust=-1, draw.tree = F)
+}
+
+list(var, map) %>% 
+  plot_grid(plotlist = ., ncol = 2, labels = "auto")
+```
+
+
+
